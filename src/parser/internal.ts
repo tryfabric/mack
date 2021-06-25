@@ -6,6 +6,7 @@ import {
   KnownBlock,
   SectionBlock,
 } from '@slack/types';
+import {ListOptions, ParsingOptions} from '../types';
 
 function parsePlainText(element: md.PhrasingContent): string[] {
   switch (element.type) {
@@ -100,7 +101,7 @@ function parsePhrasingContent(
             text: element.title,
           }
         : undefined,
-      alt_text: element.title ?? element.url,
+      alt_text: element.alt ?? element.title ?? element.url,
     };
 
     accumulator.push(image);
@@ -137,7 +138,7 @@ function parseCode(element: md.Code): SectionBlock {
   };
 }
 
-function parseList(element: md.List): SectionBlock {
+function parseList(element: md.List, options: ListOptions = {}): SectionBlock {
   let index = 0;
   const contents = element.children.flatMap(item => {
     const paragraph = item.children[0];
@@ -150,17 +151,14 @@ function parseList(element: md.List): SectionBlock {
         (child): child is Exclude<md.PhrasingContent, md.Image> =>
           child.type !== 'image'
       )
-      .flatMap(parseMrkdwn);
+      .flatMap(parseMrkdwn)
+      .join('');
 
     if (element.start !== null && element.start !== undefined) {
       index += 1;
       return `${index}. ${text}`;
     } else if (item.checked !== null && item.checked !== undefined) {
-      return `${
-        item.checked
-          ? ':ballot_box_with_check:'
-          : ':negative_squared_cross_mark:'
-      } ${text}`;
+      return `${options.checkboxPrefix?.(item.checked) ?? '•'}${text}`;
     } else {
       return `• ${text}`;
     }
@@ -187,7 +185,10 @@ function parseThematicBreak(): DividerBlock {
   };
 }
 
-function parseNode(node: md.FlowContent): KnownBlock[] {
+function parseNode(
+  node: md.FlowContent,
+  options: ParsingOptions
+): KnownBlock[] {
   switch (node.type) {
     case 'heading':
       return [parseHeading(node)];
@@ -202,7 +203,7 @@ function parseNode(node: md.FlowContent): KnownBlock[] {
       return parseBlockquote(node);
 
     case 'list':
-      return [parseList(node)];
+      return [parseList(node, options.lists)];
 
     case 'thematicBreak':
       return [parseThematicBreak()];
@@ -212,6 +213,9 @@ function parseNode(node: md.FlowContent): KnownBlock[] {
   }
 }
 
-export function parseBlocks(root: md.Root): KnownBlock[] {
-  return root.children.flatMap(parseNode);
+export function parseBlocks(
+  root: md.Root,
+  options: ParsingOptions = {}
+): KnownBlock[] {
+  return root.children.flatMap(node => parseNode(node, options));
 }

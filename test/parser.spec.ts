@@ -48,8 +48,8 @@ describe('parser', () => {
         md.listItem(md.paragraph(md.text('d')))
       ),
       md.unorderedList(
-        md.checkedListItem(true, md.paragraph(md.text('e'))),
-        md.checkedListItem(false, md.paragraph(md.text('f')))
+        md.checkedListItem(true, md.paragraph(md.text(' e'))),
+        md.checkedListItem(false, md.paragraph(md.text(' f')))
       )
     );
 
@@ -58,9 +58,7 @@ describe('parser', () => {
     const expected = [
       slack.section('1. a\n2. b'),
       slack.section('• c\n• d'),
-      slack.section(
-        ':ballot_box_with_check: e\n:negative_squared_cross_mark: f'
-      ),
+      slack.section('• e\n• f'),
     ];
 
     expect(actual).toStrictEqual(expected);

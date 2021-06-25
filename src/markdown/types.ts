@@ -112,6 +112,7 @@ export interface ImageReference extends Node {
 export interface Resource {
   url: string;
   title?: string;
+  alt?: string;
 }
 
 export interface Table extends Parent {
