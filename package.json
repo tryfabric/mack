@@ -1,7 +1,7 @@
 {
   "name": "@instantish/mack",
   "version": "1.0.0",
-  "description": "",
+  "description": "Converts Markdown to Slack BlockKit Blocks",
   "main": "build/src/index.js",
   "types": "build/src/index.d.ts",
   "scripts": {
@@ -15,9 +15,12 @@
     "posttest": "npm run lint"
   },
   "keywords": [
-    "Richard Robinson"
+    "markdown",
+    "parser",
+    "gfm",
+    "slack"
   ],
-  "author": "",
+  "author": "Richard Robinson",
   "license": "ISC",
   "dependencies": {
     "@slack/types": "^2.1.0",
