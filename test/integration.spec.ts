@@ -10,6 +10,7 @@ a **b** _c_ **_d_ e**
 
 ![59953191-480px](https://user-images.githubusercontent.com/16073505/123464383-b8715300-d5ba-11eb-8586-b1f965e1f18d.jpg)
 
+<img src="https://user-images.githubusercontent.com/16073505/123464383-b8715300-d5ba-11eb-8586-b1f965e1f18d.jpg" alt="59953191-480px"/>
 
 > block quote **a**
 > block quote b
@@ -31,6 +32,10 @@ a **b** _c_ **_d_ e**
     const expected = [
       slack.section('a *b* _c_ *_d_ e*'),
       slack.header('heading a'),
+      slack.image(
+        'https://user-images.githubusercontent.com/16073505/123464383-b8715300-d5ba-11eb-8586-b1f965e1f18d.jpg',
+        '59953191-480px'
+      ),
       slack.image(
         'https://user-images.githubusercontent.com/16073505/123464383-b8715300-d5ba-11eb-8586-b1f965e1f18d.jpg',
         '59953191-480px'
