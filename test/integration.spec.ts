@@ -25,6 +25,11 @@ a **b** _c_ **_d_ e**
 
 - [ ] checkbox false
 - [x] checkbox true
+
+| Syntax      | Description |
+| ----------- | ----------- |
+| Header      | Title       |
+| Paragraph   | Text        |
 `;
 
     const actual = await markdownToBlocks(text);
@@ -45,6 +50,14 @@ a **b** _c_ **_d_ e**
       slack.section('• bullet _a_\n• bullet _b_'),
       slack.section('1. number _a_\n2. number _b_'),
       slack.section('• checkbox false\n• checkbox true'),
+      slack.section(
+        '```\n' +
+          '| Syntax | Description |\n' +
+          '| --- | --- |\n' +
+          '| Header | Title |\n' +
+          '| Paragraph | Text |\n' +
+          '```'
+      ),
     ];
 
     console.log(JSON.stringify(expected, null, 3));

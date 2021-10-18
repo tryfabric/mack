@@ -86,6 +86,18 @@ function addMrkdwn(
   }
 }
 
+function parsePhrasingContentToStrings(
+  element: md.PhrasingContent,
+  accumulator: String[]
+) {
+  if (element.type === 'image') {
+    accumulator.push(element.url ?? element.title ?? element.alt ?? 'image');
+  } else {
+    const text = parseMrkdwn(element);
+    accumulator.push(text);
+  }
+}
+
 function parsePhrasingContent(
   element: md.PhrasingContent,
   accumulator: (SectionBlock | ImageBlock)[],
@@ -173,6 +185,55 @@ function parseList(element: md.List, options: ListOptions = {}): SectionBlock {
   };
 }
 
+function combineBetweenPipes(texts: String[]): String {
+  return `| ${texts.join(' | ')} |`;
+}
+
+function parseTableRows(rows: md.TableRow[]): String[] {
+  const parsedRows: String[] = [];
+  rows.forEach((row, index) => {
+    const parsedCells = parseTableRow(row);
+    if (index === 1) {
+      const headerRowArray = new Array(parsedCells.length).fill('---');
+      const headerRow = combineBetweenPipes(headerRowArray);
+      parsedRows.push(headerRow);
+    }
+    parsedRows.push(combineBetweenPipes(parsedCells));
+  });
+  return parsedRows;
+}
+
+function parseTableRow(row: md.TableRow): String[] {
+  const parsedCells: String[] = [];
+  row.children.forEach(cell => {
+    parsedCells.push(parseTableCell(cell));
+  });
+  return parsedCells;
+}
+
+function parseTableCell(cell: md.TableCell): String {
+  const texts = cell.children.reduce(
+    (accumulator: String[], child: md.PhrasingContent) => {
+      parsePhrasingContentToStrings(child, accumulator);
+      return accumulator;
+    },
+    [] as String[]
+  );
+  return texts.join(' ');
+}
+
+function parseTable(element: md.Table): SectionBlock {
+  const parsedRows = parseTableRows(element.children);
+
+  return {
+    type: 'section',
+    text: {
+      type: 'mrkdwn',
+      text: `\`\`\`\n${parsedRows.join('\n')}\n\`\`\``,
+    },
+  };
+}
+
 function parseBlockquote(node: md.Blockquote): KnownBlock[] {
   return node.children
     .filter((child): child is md.Paragraph => child.type === 'paragraph')
@@ -204,6 +265,9 @@ function parseNode(
 
     case 'list':
       return [parseList(node, options.lists)];
+
+    case 'table':
+      return [parseTable(node)];
 
     case 'thematicBreak':
       return [parseThematicBreak()];
