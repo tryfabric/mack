@@ -64,4 +64,62 @@ a **b** _c_ **_d_ e**
 
     expect(actual).toStrictEqual(expected);
   });
+
+  describe('code blocks', () => {
+    it('should parse code blocks with no language', async () => {
+      const text = `\`\`\`
+if (a === 'hi') {
+  console.log('hi!')
+} else {
+  console.log('hello')
+}
+\`\`\``;
+
+      const actual = await markdownToBlocks(text);
+
+      const expected = [
+        slack.section(
+          `\`\`\`
+if (a === 'hi') {
+  console.log('hi!')
+} else {
+  console.log('hello')
+}
+\`\`\``
+        ),
+      ];
+
+      console.log(JSON.stringify(expected, null, 3));
+
+      expect(actual).toStrictEqual(expected);
+    });
+
+    it('should parse code blocks with language', async () => {
+      const text = `\`\`\`javascript
+if (a === 'hi') {
+  console.log('hi!')
+} else {
+  console.log('hello')
+}
+\`\`\``;
+
+      const actual = await markdownToBlocks(text);
+
+      const expected = [
+        slack.section(
+          `\`\`\`
+if (a === 'hi') {
+  console.log('hi!')
+} else {
+  console.log('hello')
+}
+\`\`\``
+        ),
+      ];
+
+      console.log(JSON.stringify(expected, null, 3));
+
+      expect(actual).toStrictEqual(expected);
+    });
+  });
 });
