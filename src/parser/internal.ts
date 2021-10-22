@@ -145,7 +145,7 @@ function parseCode(element: md.Code): SectionBlock {
     type: 'section',
     text: {
       type: 'mrkdwn',
-      text: `\`\`\`${element.lang}\n${element.value}\n\`\`\``,
+      text: `\`\`\`\n${element.value}\n\`\`\``,
     },
   };
 }
