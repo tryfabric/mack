@@ -9,6 +9,8 @@ Mack is a Markdown parser to convert any Markdown content to Slack BlockKit bloc
 uses [unified](https://github.com/unifiedjs/unified) to create a Markdown AST, then converts the AST into Slack
 objects.
 
+Text is truncated to fit within the Slack API's limits.
+
 ### Supported Markdown Elements
 
 - All inline elements (italics, bold, strikethrough, inline code, hyperlinks)

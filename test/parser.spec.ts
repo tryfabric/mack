@@ -95,3 +95,38 @@ describe('parser', () => {
     expect(actual).toStrictEqual(expected);
   });
 });
+
+it('should truncate basic markdown', () => {
+  const a4000 = new Array(4000).fill('a').join('');
+  const a3000 = new Array(3000).fill('a').join('');
+  const node = md.root(md.paragraph(md.text(a4000)));
+
+  const actual = parseBlocks(node);
+
+  const expected = [slack.section(a3000)];
+
+  expect(actual.length).toStrictEqual(expected.length);
+});
+
+it('should truncate header', () => {
+  const a200 = new Array(200).fill('a').join('');
+  const a150 = new Array(150).fill('a').join('');
+  const node = md.root(md.heading(1, md.strong(md.text(a200))));
+  const actual = parseBlocks(node);
+
+  const expected = [slack.header(a150)];
+
+  expect(actual.length).toStrictEqual(expected.length);
+});
+
+it('should truncate image title', () => {
+  const a3000 = new Array(3000).fill('a').join('');
+  const a2000 = new Array(2000).fill('a').join('');
+  const node = md.root(md.paragraph(md.image('url', a3000)));
+
+  const actual = parseBlocks(node);
+
+  const expected = [slack.image('url', a2000)];
+
+  expect(actual.length).toStrictEqual(expected.length);
+});
