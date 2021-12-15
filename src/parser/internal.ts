@@ -7,6 +7,7 @@ import {
   SectionBlock,
 } from '@slack/types';
 import {ListOptions, ParsingOptions} from '../types';
+import {section, divider, header, image} from '../slack';
 
 function parsePlainText(element: md.PhrasingContent): string[] {
   switch (element.type) {
@@ -76,13 +77,7 @@ function addMrkdwn(
   if (last && isSectionBlock(last) && last.text) {
     last.text.text += content;
   } else {
-    accumulator.push({
-      type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: `${prefix}${content}`,
-      },
-    });
+    accumulator.push(section(`${prefix}${content}`));
   }
 }
 
@@ -104,19 +99,12 @@ function parsePhrasingContent(
   prefix = ''
 ) {
   if (element.type === 'image') {
-    const image: ImageBlock = {
-      type: 'image',
-      image_url: element.url,
-      title: element.title
-        ? {
-            type: 'plain_text',
-            text: element.title,
-          }
-        : undefined,
-      alt_text: element.alt ?? element.title ?? element.url,
-    };
-
-    accumulator.push(image);
+    const imageBlock: ImageBlock = image(
+      element.url,
+      element.alt ?? element.title ?? element.url,
+      element.title
+    );
+    accumulator.push(imageBlock);
   } else {
     const text = parseMrkdwn(element);
     addMrkdwn(text, accumulator, prefix);
@@ -131,23 +119,11 @@ function parseParagraph(element: md.Paragraph, prefix = ''): KnownBlock[] {
 }
 
 function parseHeading(element: md.Heading): HeaderBlock {
-  return {
-    type: 'header',
-    text: {
-      type: 'plain_text',
-      text: element.children.flatMap(parsePlainText).join(''),
-    },
-  };
+  return header(element.children.flatMap(parsePlainText).join(''));
 }
 
 function parseCode(element: md.Code): SectionBlock {
-  return {
-    type: 'section',
-    text: {
-      type: 'mrkdwn',
-      text: `\`\`\`\n${element.value}\n\`\`\``,
-    },
-  };
+  return section(`\`\`\`\n${element.value}\n\`\`\``);
 }
 
 function parseList(element: md.List, options: ListOptions = {}): SectionBlock {
@@ -176,13 +152,7 @@ function parseList(element: md.List, options: ListOptions = {}): SectionBlock {
     }
   });
 
-  return {
-    type: 'section',
-    text: {
-      type: 'mrkdwn',
-      text: contents.join('\n'),
-    },
-  };
+  return section(contents.join('\n'));
 }
 
 function combineBetweenPipes(texts: String[]): String {
@@ -225,13 +195,7 @@ function parseTableCell(cell: md.TableCell): String {
 function parseTable(element: md.Table): SectionBlock {
   const parsedRows = parseTableRows(element.children);
 
-  return {
-    type: 'section',
-    text: {
-      type: 'mrkdwn',
-      text: `\`\`\`\n${parsedRows.join('\n')}\n\`\`\``,
-    },
-  };
+  return section(`\`\`\`\n${parsedRows.join('\n')}\n\`\`\``);
 }
 
 function parseBlockquote(node: md.Blockquote): KnownBlock[] {
@@ -241,9 +205,7 @@ function parseBlockquote(node: md.Blockquote): KnownBlock[] {
 }
 
 function parseThematicBreak(): DividerBlock {
-  return {
-    type: 'divider',
-  };
+  return divider();
 }
 
 function parseNode(
