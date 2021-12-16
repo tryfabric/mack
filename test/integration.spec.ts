@@ -65,6 +65,16 @@ a **b** _c_ **_d_ e**
     expect(actual).toStrictEqual(expected);
   });
 
+  it('should parse long markdown', async () => {
+    const text: string = new Array(3500).fill('a').join('') + 'bbbcccdddeee';
+
+    const actual = await markdownToBlocks(text);
+
+    const expected = [slack.section(text.slice(0, 3000))];
+
+    expect(actual).toStrictEqual(expected);
+  });
+
   describe('code blocks', () => {
     it('should parse code blocks with no language', async () => {
       const text = `\`\`\`
