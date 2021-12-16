@@ -72,8 +72,6 @@ a **b** _c_ **_d_ e**
 
     const expected = [slack.section(text.slice(0, 3000))];
 
-    console.log(JSON.stringify(expected, null, 3));
-
     expect(actual).toStrictEqual(expected);
   });
 
