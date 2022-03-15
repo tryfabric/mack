@@ -45,22 +45,13 @@ a **b** _c_ **_d_ e**
         'https://user-images.githubusercontent.com/16073505/123464383-b8715300-d5ba-11eb-8586-b1f965e1f18d.jpg',
         '59953191-480px'
       ),
-      slack.section('> block quote *a* block quote b'),
+      // blockquotes are not supported
       slack.section('<https://apple.com|link> '),
       slack.section('• bullet _a_\n• bullet _b_'),
       slack.section('1. number _a_\n2. number _b_'),
       slack.section('• checkbox false\n• checkbox true'),
-      slack.section(
-        '```\n' +
-          '| Syntax | Description |\n' +
-          '| --- | --- |\n' +
-          '| Header | Title |\n' +
-          '| Paragraph | Text |\n' +
-          '```'
-      ),
+      // tables are not supported
     ];
-
-    console.log(JSON.stringify(expected, null, 3));
 
     expect(actual).toStrictEqual(expected);
   });
@@ -99,8 +90,6 @@ if (a === 'hi') {
         ),
       ];
 
-      console.log(JSON.stringify(expected, null, 3));
-
       expect(actual).toStrictEqual(expected);
     });
 
@@ -126,8 +115,6 @@ if (a === 'hi') {
 \`\`\``
         ),
       ];
-
-      console.log(JSON.stringify(expected, null, 3));
 
       expect(actual).toStrictEqual(expected);
     });

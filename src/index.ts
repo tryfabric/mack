@@ -1,15 +1,7 @@
-import unified from 'unified';
-import markdown from 'remark-parse';
-import gfm from 'remark-gfm';
 import type {KnownBlock} from '@slack/types';
-import TurndownService from 'turndown';
-import remark2rehype from 'remark-rehype';
-import html from 'rehype-stringify';
-import raw from 'rehype-raw';
 import {parseBlocks} from './parser/internal';
-import type {Root} from './markdown';
 import type {ParsingOptions} from './types';
-const {gfm: turndownGfm} = require('turndown-plugin-gfm');
+import {marked} from 'marked';
 
 /**
  * Parses Markdown content into Slack BlockKit Blocks.
@@ -32,21 +24,7 @@ export async function markdownToBlocks(
   body: string,
   options: ParsingOptions = {}
 ): Promise<KnownBlock[]> {
-  // TODO: Make this more efficient by using less intermediary parsers
+  const tokens = marked.lexer(body);
 
-  const turndownService = new TurndownService().use(turndownGfm);
-
-  const rawHtml = await unified()
-    .use(markdown)
-    .use(gfm)
-    .use(remark2rehype, {allowDangerousHtml: true})
-    .use(raw)
-    .use(html)
-    .process(body);
-
-  const rawMarkdown = turndownService.turndown(String(rawHtml));
-
-  const root = unified().use(markdown).use(gfm).parse(rawMarkdown);
-
-  return parseBlocks(root as unknown as Root, options);
+  return parseBlocks(tokens, options);
 }

@@ -25,21 +25,13 @@
   "license": "ISC",
   "dependencies": {
     "@slack/types": "^2.1.0",
-    "rehype-raw": "^5.1.0",
-    "rehype-stringify": "^8.0.0",
-    "remark-gfm": "^1.0.0",
-    "remark-inline-links": "^5.0.0",
-    "remark-parse": "^9.0.0",
-    "remark-rehype": "^8.1.0",
-    "remark-unwrap-images": "^2.1.0",
-    "turndown": "^7.0.0",
-    "turndown-plugin-gfm": "^1.0.2",
-    "unified": "^9.2.1"
+    "fast-xml-parser": "^4.0.6",
+    "marked": "^4.0.12"
   },
   "devDependencies": {
     "@types/jest": "^26.0.23",
+    "@types/marked": "^4.0.2",
     "@types/node": "^15.12.4",
-    "@types/turndown": "^5.0.0",
     "gts": "^3.1.0",
     "jest": "^27.0.5",
     "release-it": "^14.11.6",
