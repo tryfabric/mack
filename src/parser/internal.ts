@@ -89,22 +89,32 @@ function parseMrkdwn(
 
 function addMrkdwn(
   content: string,
-  accumulator: (SectionBlock | ImageBlock)[],
-  prefix: string
+  accumulator: (SectionBlock | ImageBlock)[]
 ) {
   const last = accumulator[accumulator.length - 1];
 
   if (last && isSectionBlock(last) && last.text) {
     last.text.text += content;
   } else {
-    accumulator.push(section(`${prefix}${content}`));
+    accumulator.push(section(content));
+  }
+}
+
+function parsePhrasingContentToStrings(
+  element: PhrasingToken,
+  accumulator: string[]
+) {
+  if (element.type === 'image') {
+    accumulator.push(element.href ?? element.title ?? element.text ?? 'image');
+  } else {
+    const text = parseMrkdwn(element);
+    accumulator.push(text);
   }
 }
 
 function parsePhrasingContent(
   element: PhrasingToken,
-  accumulator: (SectionBlock | ImageBlock)[],
-  prefix = ''
+  accumulator: (SectionBlock | ImageBlock)[]
 ) {
   if (element.type === 'image') {
     const imageBlock: ImageBlock = image(
@@ -115,16 +125,13 @@ function parsePhrasingContent(
     accumulator.push(imageBlock);
   } else {
     const text = parseMrkdwn(element);
-    addMrkdwn(text, accumulator, prefix);
+    addMrkdwn(text, accumulator);
   }
 }
 
-function parseParagraph(
-  element: marked.Tokens.Paragraph,
-  prefix = ''
-): KnownBlock[] {
+function parseParagraph(element: marked.Tokens.Paragraph): KnownBlock[] {
   return element.tokens.reduce((accumulator, child) => {
-    parsePhrasingContent(child as PhrasingToken, accumulator, prefix);
+    parsePhrasingContent(child as PhrasingToken, accumulator);
     return accumulator;
   }, [] as (SectionBlock | ImageBlock)[]);
 }
@@ -173,6 +180,60 @@ function parseList(
   return section(contents.join('\n'));
 }
 
+function combineBetweenPipes(texts: String[]): string {
+  return `| ${texts.join(' | ')} |`;
+}
+
+function parseTableRows(rows: marked.Tokens.TableCell[][]): string[] {
+  const parsedRows: string[] = [];
+  rows.forEach((row, index) => {
+    const parsedCells = parseTableRow(row);
+    if (index === 1) {
+      const headerRowArray = new Array(parsedCells.length).fill('---');
+      const headerRow = combineBetweenPipes(headerRowArray);
+      parsedRows.push(headerRow);
+    }
+    parsedRows.push(combineBetweenPipes(parsedCells));
+  });
+  return parsedRows;
+}
+
+function parseTableRow(row: marked.Tokens.TableCell[]): String[] {
+  const parsedCells: String[] = [];
+  row.forEach(cell => {
+    parsedCells.push(parseTableCell(cell));
+  });
+  return parsedCells;
+}
+
+function parseTableCell(cell: marked.Tokens.TableCell): String {
+  const texts = cell.tokens.reduce((accumulator, child) => {
+    parsePhrasingContentToStrings(child as PhrasingToken, accumulator);
+    return accumulator;
+  }, [] as string[]);
+  return texts.join(' ');
+}
+
+function parseTable(element: marked.Tokens.Table): SectionBlock {
+  const parsedRows = parseTableRows([element.header, ...element.rows]);
+
+  return section(`\`\`\`\n${parsedRows.join('\n')}\n\`\`\``);
+}
+
+function parseBlockquote(element: marked.Tokens.Blockquote): KnownBlock[] {
+  return element.tokens
+    .filter(
+      (child): child is marked.Tokens.Paragraph => child.type === 'paragraph'
+    )
+    .flatMap(p =>
+      parseParagraph(p).map(block => {
+        if (isSectionBlock(block) && block.text?.text?.includes('\n'))
+          block.text.text = '> ' + block.text.text.replace(/\n/g, '\n> ');
+        return block;
+      })
+    );
+}
+
 function parseThematicBreak(): DividerBlock {
   return divider();
 }
@@ -209,8 +270,14 @@ function parseToken(
     case 'code':
       return [parseCode(token)];
 
+    case 'blockquote':
+      return parseBlockquote(token);
+
     case 'list':
       return [parseList(token, options.lists)];
+
+    case 'table':
+      return [parseTable(token)];
 
     case 'hr':
       return [parseThematicBreak()];
