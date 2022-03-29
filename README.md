@@ -24,7 +24,7 @@ Text is truncated to fit within the Slack API's limits.
 
 ### Not Yet Supported Markdown Elements
 
-- - Block quotes (limited functionality; does not support lists, headings, or images within the block quote)
+- Block quotes (limited functionality; does not support lists, headings, or images within the block quote)
 
 ## Installation
 

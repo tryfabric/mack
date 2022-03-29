@@ -1,4 +1,3 @@
-import * as md from '../markdown';
 import {
   DividerBlock,
   HeaderBlock,
@@ -8,27 +7,40 @@ import {
 } from '@slack/types';
 import {ListOptions, ParsingOptions} from '../types';
 import {section, divider, header, image} from '../slack';
+import {marked} from 'marked';
+import {XMLParser} from 'fast-xml-parser';
 
-function parsePlainText(element: md.PhrasingContent): string[] {
+type PhrasingToken =
+  | marked.Tokens.Link
+  | marked.Tokens.Em
+  | marked.Tokens.Strong
+  | marked.Tokens.Del
+  | marked.Tokens.Br
+  | marked.Tokens.Image
+  | marked.Tokens.Codespan
+  | marked.Tokens.Text
+  | marked.Tokens.HTML;
+
+function parsePlainText(element: PhrasingToken): string[] {
   switch (element.type) {
-    case 'linkReference':
     case 'link':
-    case 'emphasis':
+    case 'em':
     case 'strong':
-    case 'delete':
-      return element.children.flatMap(parsePlainText);
+    case 'del':
+      return element.tokens.flatMap(child =>
+        parsePlainText(child as PhrasingToken)
+      );
 
-    case 'break':
-    case 'imageReference':
+    case 'br':
       return [];
 
     case 'image':
-      return [element.title ?? element.url];
+      return [element.title ?? element.href];
 
-    case 'inlineCode':
+    case 'codespan':
     case 'text':
     case 'html':
-      return [element.value];
+      return [element.raw];
   }
 }
 
@@ -36,30 +48,38 @@ function isSectionBlock(block: KnownBlock): block is SectionBlock {
   return block.type === 'section';
 }
 
-function parseMrkdwn(element: Exclude<md.PhrasingContent, md.Image>): string {
+function parseMrkdwn(
+  element: Exclude<PhrasingToken, marked.Tokens.Image>
+): string {
   switch (element.type) {
     case 'link': {
-      return `<${element.url}|${element.children
-        .flatMap(parseMrkdwn)
+      return `<${element.href}|${element.tokens
+        .flatMap(child => parseMrkdwn(child as typeof element))
         .join('')}> `;
     }
 
-    case 'emphasis': {
-      return `_${element.children.flatMap(parseMrkdwn).join('')}_`;
+    case 'em': {
+      return `_${element.tokens
+        .flatMap(child => parseMrkdwn(child as typeof element))
+        .join('')}_`;
     }
 
-    case 'inlineCode':
-      return `\`${element.value}\``;
+    case 'codespan':
+      return `\`${element.text}\``;
 
     case 'strong': {
-      return `*${element.children.flatMap(parseMrkdwn).join('')}*`;
+      return `*${element.tokens
+        .flatMap(child => parseMrkdwn(child as typeof element))
+        .join('')}*`;
     }
 
     case 'text':
-      return element.value;
+      return element.text;
 
-    case 'delete': {
-      return `~${element.children.flatMap(parseMrkdwn).join('')}~`;
+    case 'del': {
+      return `~${element.tokens
+        .flatMap(child => parseMrkdwn(child as typeof element))
+        .join('')}~`;
     }
 
     default:
@@ -69,24 +89,23 @@ function parseMrkdwn(element: Exclude<md.PhrasingContent, md.Image>): string {
 
 function addMrkdwn(
   content: string,
-  accumulator: (SectionBlock | ImageBlock)[],
-  prefix: string
+  accumulator: (SectionBlock | ImageBlock)[]
 ) {
   const last = accumulator[accumulator.length - 1];
 
   if (last && isSectionBlock(last) && last.text) {
     last.text.text += content;
   } else {
-    accumulator.push(section(`${prefix}${content}`));
+    accumulator.push(section(content));
   }
 }
 
 function parsePhrasingContentToStrings(
-  element: md.PhrasingContent,
-  accumulator: String[]
+  element: PhrasingToken,
+  accumulator: string[]
 ) {
   if (element.type === 'image') {
-    accumulator.push(element.url ?? element.title ?? element.alt ?? 'image');
+    accumulator.push(element.href ?? element.title ?? element.text ?? 'image');
   } else {
     const text = parseMrkdwn(element);
     accumulator.push(text);
@@ -94,59 +113,65 @@ function parsePhrasingContentToStrings(
 }
 
 function parsePhrasingContent(
-  element: md.PhrasingContent,
-  accumulator: (SectionBlock | ImageBlock)[],
-  prefix = ''
+  element: PhrasingToken,
+  accumulator: (SectionBlock | ImageBlock)[]
 ) {
   if (element.type === 'image') {
     const imageBlock: ImageBlock = image(
-      element.url,
-      element.alt ?? element.title ?? element.url,
+      element.href,
+      element.text || element.title || element.href,
       element.title
     );
     accumulator.push(imageBlock);
   } else {
     const text = parseMrkdwn(element);
-    addMrkdwn(text, accumulator, prefix);
+    addMrkdwn(text, accumulator);
   }
 }
 
-function parseParagraph(element: md.Paragraph, prefix = ''): KnownBlock[] {
-  return element.children.reduce((accumulator, child) => {
-    parsePhrasingContent(child, accumulator, prefix);
+function parseParagraph(element: marked.Tokens.Paragraph): KnownBlock[] {
+  return element.tokens.reduce((accumulator, child) => {
+    parsePhrasingContent(child as PhrasingToken, accumulator);
     return accumulator;
   }, [] as (SectionBlock | ImageBlock)[]);
 }
 
-function parseHeading(element: md.Heading): HeaderBlock {
-  return header(element.children.flatMap(parsePlainText).join(''));
+function parseHeading(element: marked.Tokens.Heading): HeaderBlock {
+  return header(
+    element.tokens
+      .flatMap(child => parsePlainText(child as PhrasingToken))
+      .join('')
+  );
 }
 
-function parseCode(element: md.Code): SectionBlock {
-  return section(`\`\`\`\n${element.value}\n\`\`\``);
+function parseCode(element: marked.Tokens.Code): SectionBlock {
+  return section(`\`\`\`\n${element.text}\n\`\`\``);
 }
 
-function parseList(element: md.List, options: ListOptions = {}): SectionBlock {
+function parseList(
+  element: marked.Tokens.List,
+  options: ListOptions = {}
+): SectionBlock {
   let index = 0;
-  const contents = element.children.flatMap(item => {
-    const paragraph = item.children[0];
-    if (paragraph.type !== 'paragraph') {
-      return '';
+  const contents = element.items.map(item => {
+    const paragraph = item.tokens[0] as marked.Tokens.Text;
+    if (!paragraph || paragraph.type !== 'text' || !paragraph.tokens?.length) {
+      return paragraph?.text || '';
     }
 
-    const text = paragraph.children
+    const text = paragraph.tokens
       .filter(
-        (child): child is Exclude<md.PhrasingContent, md.Image> =>
+        (child): child is Exclude<PhrasingToken, marked.Tokens.Image> =>
           child.type !== 'image'
       )
       .flatMap(parseMrkdwn)
       .join('');
 
-    if (element.start !== null && element.start !== undefined) {
+    if (element.ordered) {
       index += 1;
       return `${index}. ${text}`;
     } else if (item.checked !== null && item.checked !== undefined) {
-      return `${options.checkboxPrefix?.(item.checked) ?? '•'}${text}`;
+      return `${options.checkboxPrefix?.(item.checked) ?? '• '}${text}`;
     } else {
       return `• ${text}`;
     }
@@ -155,12 +180,12 @@ function parseList(element: md.List, options: ListOptions = {}): SectionBlock {
   return section(contents.join('\n'));
 }
 
-function combineBetweenPipes(texts: String[]): String {
+function combineBetweenPipes(texts: String[]): string {
   return `| ${texts.join(' | ')} |`;
 }
 
-function parseTableRows(rows: md.TableRow[]): String[] {
-  const parsedRows: String[] = [];
+function parseTableRows(rows: marked.Tokens.TableCell[][]): string[] {
+  const parsedRows: string[] = [];
   rows.forEach((row, index) => {
     const parsedCells = parseTableRow(row);
     if (index === 1) {
@@ -173,66 +198,92 @@ function parseTableRows(rows: md.TableRow[]): String[] {
   return parsedRows;
 }
 
-function parseTableRow(row: md.TableRow): String[] {
+function parseTableRow(row: marked.Tokens.TableCell[]): String[] {
   const parsedCells: String[] = [];
-  row.children.forEach(cell => {
+  row.forEach(cell => {
     parsedCells.push(parseTableCell(cell));
   });
   return parsedCells;
 }
 
-function parseTableCell(cell: md.TableCell): String {
-  const texts = cell.children.reduce(
-    (accumulator: String[], child: md.PhrasingContent) => {
-      parsePhrasingContentToStrings(child, accumulator);
-      return accumulator;
-    },
-    [] as String[]
-  );
+function parseTableCell(cell: marked.Tokens.TableCell): String {
+  const texts = cell.tokens.reduce((accumulator, child) => {
+    parsePhrasingContentToStrings(child as PhrasingToken, accumulator);
+    return accumulator;
+  }, [] as string[]);
   return texts.join(' ');
 }
 
-function parseTable(element: md.Table): SectionBlock {
-  const parsedRows = parseTableRows(element.children);
+function parseTable(element: marked.Tokens.Table): SectionBlock {
+  const parsedRows = parseTableRows([element.header, ...element.rows]);
 
   return section(`\`\`\`\n${parsedRows.join('\n')}\n\`\`\``);
 }
 
-function parseBlockquote(node: md.Blockquote): KnownBlock[] {
-  return node.children
-    .filter((child): child is md.Paragraph => child.type === 'paragraph')
-    .flatMap(p => parseParagraph(p, '> '));
+function parseBlockquote(element: marked.Tokens.Blockquote): KnownBlock[] {
+  return element.tokens
+    .filter(
+      (child): child is marked.Tokens.Paragraph => child.type === 'paragraph'
+    )
+    .flatMap(p =>
+      parseParagraph(p).map(block => {
+        if (isSectionBlock(block) && block.text?.text?.includes('\n'))
+          block.text.text = '> ' + block.text.text.replace(/\n/g, '\n> ');
+        return block;
+      })
+    );
 }
 
 function parseThematicBreak(): DividerBlock {
   return divider();
 }
 
-function parseNode(
-  node: md.FlowContent,
+function parseHTML(
+  element: marked.Tokens.HTML | marked.Tokens.Tag
+): KnownBlock[] {
+  const parser = new XMLParser({ignoreAttributes: false});
+  const res = parser.parse(element.raw);
+
+  if (res.img) {
+    const tags = res.img instanceof Array ? res.img : [res.img];
+
+    return tags
+      .map((img: Record<string, string>) => {
+        const url: string = img['@_src'];
+        return image(url, img['@_alt'] || url);
+      })
+      .filter((e: Record<string, string>) => !!e);
+  } else return [];
+}
+
+function parseToken(
+  token: marked.Token,
   options: ParsingOptions
 ): KnownBlock[] {
-  switch (node.type) {
+  switch (token.type) {
     case 'heading':
-      return [parseHeading(node)];
+      return [parseHeading(token)];
 
     case 'paragraph':
-      return parseParagraph(node);
+      return parseParagraph(token);
 
     case 'code':
-      return [parseCode(node)];
+      return [parseCode(token)];
 
     case 'blockquote':
-      return parseBlockquote(node);
+      return parseBlockquote(token);
 
     case 'list':
-      return [parseList(node, options.lists)];
+      return [parseList(token, options.lists)];
 
     case 'table':
-      return [parseTable(node)];
+      return [parseTable(token)];
 
-    case 'thematicBreak':
+    case 'hr':
       return [parseThematicBreak()];
+
+    case 'html':
+      return parseHTML(token);
 
     default:
       return [];
@@ -240,8 +291,8 @@ function parseNode(
 }
 
 export function parseBlocks(
-  root: md.Root,
+  tokens: marked.TokensList,
   options: ParsingOptions = {}
 ): KnownBlock[] {
-  return root.children.flatMap(node => parseNode(node, options));
+  return tokens.flatMap(token => parseToken(token, options));
 }
