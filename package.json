@@ -1,5 +1,9 @@
 {
   "name": "@instantish/mack",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/instantish/mack.git"
+  },
   "version": "1.2.0",
   "description": "Converts Markdown to Slack BlockKit Blocks",
   "main": "build/src/index.js",
@@ -21,7 +25,7 @@
     "gfm",
     "slack"
   ],
-  "author": "Richard Robinson",
+  "author": "Instantish",
   "license": "ISC",
   "dependencies": {
     "@slack/types": "^2.1.0",
