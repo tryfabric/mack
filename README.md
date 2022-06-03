@@ -29,13 +29,13 @@ Text is truncated to fit within the Slack API's limits.
 ## Installation
 
 ```
-npm install @instantish/mack
+npm install @tryfabric/mack
 ```
 
 ## Usage
 
 ```ts
-import {markdownToBlocks} from '@instantish/mack';
+import {markdownToBlocks} from '@tryfabric/mack';
 
 const blocks = markdownToBlocks(`
 # Hello world
