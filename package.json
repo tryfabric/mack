@@ -4,7 +4,7 @@
     "type": "git",
     "url": "https://github.com/tryfabric/mack.git"
   },
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Converts Markdown to Slack BlockKit Blocks",
   "main": "build/src/index.js",
   "types": "build/src/index.d.ts",
