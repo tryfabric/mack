@@ -56,6 +56,27 @@ describe('parser', () => {
     expect(actual).toStrictEqual(expected);
   });
 
+  it('should parse a list with newline', async () => {
+    const tokens = marked.lexer(
+      `1.
+Monday
+2.
+Tuesday
+3.
+Wednesday`
+        .trim()
+        .split('\n')
+        .map(s => s.trim())
+        .join('\n')
+    );
+
+    const actual = parseBlocks(tokens);
+
+    const expected = [slack.section('1. Monday\n2. Tuesday\n3. Wednesday')];
+
+    expect(actual).toStrictEqual(expected);
+  });
+
   it('should parse images', () => {
     const tokens = marked.lexer('![alt](url "title")![](url)');
     const actual = parseBlocks(tokens);
