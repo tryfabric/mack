@@ -154,7 +154,11 @@ function parseList(
 ): SectionBlock {
   let index = 0;
   const contents = element.items.map(item => {
-    const paragraph = item.tokens[0] as marked.Tokens.Text;
+    let tokenIndex = 0;
+    if (item.tokens[0].type === 'space' && item.tokens[1]) {
+      tokenIndex = 1;
+    }
+    const paragraph = item.tokens[tokenIndex] as marked.Tokens.Text;
     if (!paragraph || paragraph.type !== 'text' || !paragraph.tokens?.length) {
       return paragraph?.text || '';
     }
