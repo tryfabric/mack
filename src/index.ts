@@ -24,7 +24,29 @@ export async function markdownToBlocks(
   body: string,
   options: ParsingOptions = {}
 ): Promise<KnownBlock[]> {
-  const tokens = marked.lexer(body);
+  // Slack only wants &, <, and > escaped
+  // https://api.slack.com/reference/surfaces/formatting#escaping
+  const replacements: Record<string, string> = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+  };
+
+  const lexer = new marked.Lexer();
+  lexer.options.tokenizer = new marked.Tokenizer();
+  lexer.options.tokenizer.inlineText = src => {
+    const text = src.replace(/[&<>]/g, char => {
+      return replacements[char];
+    });
+
+    return {
+      type: 'text',
+      raw: src,
+      text: text,
+    };
+  };
+
+  const tokens = lexer.lex(body);
 
   return parseBlocks(tokens, options);
 }
