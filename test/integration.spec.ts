@@ -126,4 +126,10 @@ if (a === 'hi') {
       expect(actual).toStrictEqual(expected);
     });
   });
+
+  it('should correctly escape text', async () => {
+    const actual = await markdownToBlocks('<>&\'""\'&><');
+    const expected = [slack.section('&lt;&gt;&amp;\'""\'&amp;&gt;&lt;')];
+    expect(actual).toStrictEqual(expected);
+  });
 });
