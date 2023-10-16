@@ -107,7 +107,6 @@ function parsePhrasingContentToStrings(
   if (element.type === 'image') {
     accumulator.push(element.href ?? element.title ?? element.text ?? 'image');
   } else {
-    if ('text' in element) console.log(element?.text);
     const text = parseMrkdwn(element);
     accumulator.push(text);
   }
