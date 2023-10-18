@@ -2,6 +2,7 @@ import type {KnownBlock} from '@slack/types';
 import {parseBlocks} from './parser/internal';
 import type {ParsingOptions} from './types';
 import {marked} from 'marked';
+import {TokenizerObject} from 'MarkedOptions';
 
 /**
  * Parses Markdown content into Slack BlockKit Blocks.
@@ -24,29 +25,32 @@ export async function markdownToBlocks(
   body: string,
   options: ParsingOptions = {}
 ): Promise<KnownBlock[]> {
-  // Slack only wants &, <, and > escaped
-  // https://api.slack.com/reference/surfaces/formatting#escaping
   const replacements: Record<string, string> = {
     '&': '&amp;',
     '<': '&lt;',
     '>': '&gt;',
   };
 
-  const lexer = new marked.Lexer();
-  lexer.options.tokenizer = new marked.Tokenizer();
-  lexer.options.tokenizer.inlineText = src => {
-    const text = src.replace(/[&<>]/g, char => {
-      return replacements[char];
-    });
-
-    return {
-      type: 'text',
-      raw: src,
-      text: text,
-    };
+  const tokenizer: TokenizerObject = {
+    inlineText(src: string) {
+      const match = src.match(/[&<>]/g);
+      if (match) {
+        const text = src.replace(/[&<>]/g, char => {
+          return replacements[char];
+        });
+        return {
+          type: 'text',
+          raw: src,
+          text: text,
+        };
+      }
+      //return false to use original inlineText tokenizer
+      return false;
+    },
   };
 
-  const tokens = lexer.lex(body);
+  marked.use({tokenizer});
 
+  const tokens = marked.lexer(body);
   return parseBlocks(tokens, options);
 }

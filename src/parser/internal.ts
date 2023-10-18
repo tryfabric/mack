@@ -7,19 +7,19 @@ import {
 } from '@slack/types';
 import {ListOptions, ParsingOptions} from '../types';
 import {section, divider, header, image} from '../slack';
-import {marked} from 'marked';
+import {Token, Tokens, TokensList} from 'marked';
 import {XMLParser} from 'fast-xml-parser';
 
 type PhrasingToken =
-  | marked.Tokens.Link
-  | marked.Tokens.Em
-  | marked.Tokens.Strong
-  | marked.Tokens.Del
-  | marked.Tokens.Br
-  | marked.Tokens.Image
-  | marked.Tokens.Codespan
-  | marked.Tokens.Text
-  | marked.Tokens.HTML;
+  | Tokens.Link
+  | Tokens.Em
+  | Tokens.Strong
+  | Tokens.Del
+  | Tokens.Br
+  | Tokens.Image
+  | Tokens.Codespan
+  | Tokens.Text
+  | Tokens.HTML;
 
 function parsePlainText(element: PhrasingToken): string[] {
   switch (element.type) {
@@ -48,9 +48,7 @@ function isSectionBlock(block: KnownBlock): block is SectionBlock {
   return block.type === 'section';
 }
 
-function parseMrkdwn(
-  element: Exclude<PhrasingToken, marked.Tokens.Image>
-): string {
+function parseMrkdwn(element: Exclude<PhrasingToken, Tokens.Image>): string {
   switch (element.type) {
     case 'link': {
       return `<${element.href}|${element.tokens
@@ -120,7 +118,7 @@ function parsePhrasingContent(
     const imageBlock: ImageBlock = image(
       element.href,
       element.text || element.title || element.href,
-      element.title
+      element.title || ''
     );
     accumulator.push(imageBlock);
   } else {
@@ -129,39 +127,45 @@ function parsePhrasingContent(
   }
 }
 
-function parseParagraph(element: marked.Tokens.Paragraph): KnownBlock[] {
-  return element.tokens.reduce((accumulator, child) => {
-    parsePhrasingContent(child as PhrasingToken, accumulator);
-    return accumulator;
-  }, [] as (SectionBlock | ImageBlock)[]);
+function parseParagraph(
+  element: Tokens.Paragraph | Tokens.Generic
+): KnownBlock[] {
+  return element.tokens
+    ? element.tokens.reduce((accumulator, child) => {
+        parsePhrasingContent(child as PhrasingToken, accumulator);
+        return accumulator;
+      }, [] as (SectionBlock | ImageBlock)[])
+    : [];
 }
 
-function parseHeading(element: marked.Tokens.Heading): HeaderBlock {
-  return header(
-    element.tokens
-      .flatMap(child => parsePlainText(child as PhrasingToken))
-      .join('')
-  );
+function parseHeading(element: Tokens.Heading | Tokens.Generic): HeaderBlock {
+  return element.tokens
+    ? header(
+        element.tokens
+          .flatMap(child => parsePlainText(child as PhrasingToken))
+          .join('')
+      )
+    : header('');
 }
 
-function parseCode(element: marked.Tokens.Code): SectionBlock {
+function parseCode(element: Tokens.Code | Tokens.Generic): SectionBlock {
   return section(`\`\`\`\n${element.text}\n\`\`\``);
 }
 
 function parseList(
-  element: marked.Tokens.List,
+  element: Tokens.List | Tokens.Generic,
   options: ListOptions = {}
 ): SectionBlock {
   let index = 0;
-  const contents = element.items.map(item => {
-    const paragraph = item.tokens[0] as marked.Tokens.Text;
+  const contents = element.items.map((item: Tokens.ListItem) => {
+    const paragraph = item.tokens[0] as Tokens.Text;
     if (!paragraph || paragraph.type !== 'text' || !paragraph.tokens?.length) {
       return paragraph?.text || '';
     }
 
     const text = paragraph.tokens
       .filter(
-        (child): child is Exclude<PhrasingToken, marked.Tokens.Image> =>
+        (child): child is Exclude<PhrasingToken, Tokens.Image> =>
           child.type !== 'image'
       )
       .flatMap(parseMrkdwn)
@@ -184,7 +188,7 @@ function combineBetweenPipes(texts: String[]): string {
   return `| ${texts.join(' | ')} |`;
 }
 
-function parseTableRows(rows: marked.Tokens.TableCell[][]): string[] {
+function parseTableRows(rows: Tokens.TableCell[][]): string[] {
   const parsedRows: string[] = [];
   rows.forEach((row, index) => {
     const parsedCells = parseTableRow(row);
@@ -198,7 +202,7 @@ function parseTableRows(rows: marked.Tokens.TableCell[][]): string[] {
   return parsedRows;
 }
 
-function parseTableRow(row: marked.Tokens.TableCell[]): String[] {
+function parseTableRow(row: Tokens.TableCell[]): String[] {
   const parsedCells: String[] = [];
   row.forEach(cell => {
     parsedCells.push(parseTableCell(cell));
@@ -206,7 +210,7 @@ function parseTableRow(row: marked.Tokens.TableCell[]): String[] {
   return parsedCells;
 }
 
-function parseTableCell(cell: marked.Tokens.TableCell): String {
+function parseTableCell(cell: Tokens.TableCell): String {
   const texts = cell.tokens.reduce((accumulator, child) => {
     parsePhrasingContentToStrings(child as PhrasingToken, accumulator);
     return accumulator;
@@ -214,24 +218,28 @@ function parseTableCell(cell: marked.Tokens.TableCell): String {
   return texts.join(' ');
 }
 
-function parseTable(element: marked.Tokens.Table): SectionBlock {
+function parseTable(element: Tokens.Table | Tokens.Generic): SectionBlock {
   const parsedRows = parseTableRows([element.header, ...element.rows]);
 
   return section(`\`\`\`\n${parsedRows.join('\n')}\n\`\`\``);
 }
 
-function parseBlockquote(element: marked.Tokens.Blockquote): KnownBlock[] {
+function parseBlockquote(
+  element: Tokens.Blockquote | Tokens.Generic
+): KnownBlock[] {
   return element.tokens
-    .filter(
-      (child): child is marked.Tokens.Paragraph => child.type === 'paragraph'
-    )
-    .flatMap(p =>
-      parseParagraph(p).map(block => {
-        if (isSectionBlock(block) && block.text?.text?.includes('\n'))
-          block.text.text = '> ' + block.text.text.replace(/\n/g, '\n> ');
-        return block;
-      })
-    );
+    ? element.tokens
+        .filter(
+          (child): child is Tokens.Paragraph => child.type === 'paragraph'
+        )
+        .flatMap(p =>
+          parseParagraph(p).map(block => {
+            if (isSectionBlock(block) && block.text?.text?.includes('\n'))
+              block.text.text = '> ' + block.text.text.replace(/\n/g, '\n> ');
+            return block;
+          })
+        )
+    : [];
 }
 
 function parseThematicBreak(): DividerBlock {
@@ -239,7 +247,7 @@ function parseThematicBreak(): DividerBlock {
 }
 
 function parseHTML(
-  element: marked.Tokens.HTML | marked.Tokens.Tag
+  element: Tokens.HTML | Tokens.Tag | Tokens.Generic
 ): KnownBlock[] {
   const parser = new XMLParser({ignoreAttributes: false});
   const res = parser.parse(element.raw);
@@ -256,10 +264,7 @@ function parseHTML(
   } else return [];
 }
 
-function parseToken(
-  token: marked.Token,
-  options: ParsingOptions
-): KnownBlock[] {
+function parseToken(token: Token, options: ParsingOptions): KnownBlock[] {
   switch (token.type) {
     case 'heading':
       return [parseHeading(token)];
@@ -291,8 +296,11 @@ function parseToken(
 }
 
 export function parseBlocks(
-  tokens: marked.TokensList,
+  tokens: TokensList,
   options: ParsingOptions = {}
 ): KnownBlock[] {
-  return tokens.flatMap(token => parseToken(token, options));
+  return tokens.flatMap(token => {
+    const parsed = parseToken(token, options);
+    return parsed;
+  });
 }
